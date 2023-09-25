@@ -1,8 +1,8 @@
 <?php
 // print_r ($_FILES);
 if ($_SERVER["REQUEST_METHOD"] == "POST") {
-    $name = $_POST["name"];
-    $email = $_POST["email"];
+    // $name = $_POST["name"];
+    // $email = $_POST["email"];
 
     $uploadDir = "../upload/";
     if (!file_exists($uploadDir))
@@ -19,8 +19,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     if (!empty($uploadedFiles)) {
         echo "<h1>Upload Successful</h1>";
-        echo "<p>Name: $name</p>";
-        echo "<p>Email: $email</p>";
+        // echo "<p>Name: $name</p>";
+        // echo "<p>Email: $email</p>";
         echo "<p>Media Files:</p>";
 
         foreach ($uploadedFiles as $file) {
