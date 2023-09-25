@@ -665,7 +665,6 @@ Request::Request(std::string req, Server server)
                 {
                     status = "301"; 
                     target += "/";
-                    std::cout << "target = " << target << std::endl;
                 }
             }
         }

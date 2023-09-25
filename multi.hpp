@@ -134,6 +134,7 @@ class Response
         
         int chunked_response_body();
         std::string normal_pages_header1(size_t contentLength);
+        std::string generateDirectoryListing();
        
 };
 
@@ -158,7 +159,6 @@ void response();
 std::string removeSpaces(const std::string &input);
 location *get_location(std::ifstream &Myfile, std::string &line);
 std::vector<Server> mainf(int ac, char **av);
-std::string generateDirectoryListing(const std::string &directoryPath,  std::map<int, Request> &req, int client_fd);
 std::string constructResponseHeader(const std::string &contentType, std::string status);
 std::string birng_content(std::vector<Request> req, int reciver);
 std::string opendir(const std::string &directoryPath, std::map<int, Request> &req, int client_fd);

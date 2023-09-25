@@ -164,7 +164,7 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
     else
     {
         size_t size = req[client_fd].Bytes_readed;
-        char rec_b[size];
+        char rec_b[2000];
         memset(rec_b, 0, size - 1);
         //
         
@@ -406,53 +406,7 @@ std::string get_last(std::string path)
     return path;
 }
 
-std::string generateDirectoryListing(const std::string &directoryPath,  std::map<int, Request> &req, int client_fd)
-{
-    std::stringstream htmlStream;
-    htmlStream << "<html><body>\n";
-    htmlStream << "<h1>Directory Listing: " << directoryPath << "</h1>\n";
-    std::string haha = "";
-    DIR *dir = opendir(directoryPath.c_str());
 
-    if (dir)
-    {
-        struct dirent *entry;
-
-        while ((entry = readdir(dir)) != NULL)
-        {
-            std::string entryName = entry->d_name;
-           
-            if (entryName != "." && entryName != "..")
-            {
-                if(req[client_fd].flag_uri == 1)
-                {
-                    
-                    htmlStream << "<p><a href=\"" << req[client_fd].uri_for_response + "/" << entryName << "\">" << entryName << "</a></p>\n";
-               } 
-               else 
-                {
-                    // haha = get_last(directoryPath);
-                    struct stat fileStat;
-                    // std::cerr << directoryPath + entryName <<std::endl;
-                    if (stat((directoryPath + entryName).c_str(), &fileStat) == 0)
-                    {
-                        if (S_ISDIR(fileStat.st_mode))
-                            entryName += "/";
-                    }
-                    htmlStream << "<p><a href=\"" << entryName << "\">" << entryName << "</a></p>\n";
-                }
-            }
-        }
-        closedir(dir);
-    }
-    else
-    {
-        htmlStream << "<p>Error opening directory.</p>\n";
-    }
-
-    htmlStream << "</body></html>\n";
-    return htmlStream.str();
-}
 
 
 

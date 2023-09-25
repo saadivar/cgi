@@ -82,6 +82,8 @@ std::string Response::redirect_pages_header()
     header += "Location: ";
     header += req[client_fd].target;
     header += "\r\n";
+    header += "\r\n";
+
 
     return header;
 }
@@ -150,6 +152,51 @@ std::string Response::get_content_type()
     }
     return "";
 }
+std::string Response::generateDirectoryListing()
+{
+    std::stringstream htmlStream;
+    htmlStream << "<html><body>\n";
+    htmlStream << "<h1>Directory Listing: " << req[client_fd].target << "</h1>\n";
+    std::string haha = "";
+    DIR *dir = opendir(req[client_fd].target.c_str());
+
+    if (dir)
+    {
+        struct dirent *entry;
+
+        while ((entry = readdir(dir)) != NULL)
+        {
+            std::string entryName = entry->d_name;
+        
+            if (entryName != "." && entryName != "..")
+            {
+                if(req[client_fd].flag_uri == 1)
+                {
+                    
+                    htmlStream << "<p><a href=\"" << req[client_fd].uri_for_response + "/" << entryName << "\">" << entryName << "</a></p>\n";
+                } 
+                else 
+                {
+                    struct stat fileStat;
+                    if (stat((req[client_fd].target + entryName).c_str(), &fileStat) == 0)
+                    {
+                        if (S_ISDIR(fileStat.st_mode))
+                            entryName += "/";
+                    }
+                    htmlStream << "<p><a href=\"" << entryName << "\">" << entryName << "</a></p>\n";
+                }
+            }
+        }
+        closedir(dir);
+    }
+    else
+    {
+        htmlStream << "<p>Error opening directory.</p>\n";
+    }
+
+    htmlStream << "</body></html>\n";
+    return htmlStream.str();
+}
 int Response::directorie_list()
 {
     std::string dir;
@@ -158,7 +205,7 @@ int Response::directorie_list()
     std::string target = req[client_fd].target;
     if (target[0] == '/')
         target = target.substr(1);
-    dir = generateDirectoryListing(target, req, client_fd);
+    dir = generateDirectoryListing();
     file_size = dir.size();
     response_header = normal_pages_header((size_t)(file_size));
     write(client_fd, response_header.c_str(), response_header.size());
