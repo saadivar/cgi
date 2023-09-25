@@ -51,3 +51,4 @@ class error_config : public std::exception
         return("Error in config file !");
     }
 };
+std::string get_current_time();

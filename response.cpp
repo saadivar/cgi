@@ -50,7 +50,11 @@ std::string Response::normal_pages_header1(size_t contentLength)
     header += "HTTP/1.1 ";
     header += req[client_fd].status;
     header += "\r\n";
-    header += "Content-Type: text/html\r\n";
+    header += "Content-Type: ";
+    if(req[client_fd].target.find("data.py") != std::string::npos)
+        header += req[client_fd].content_type_python + "\r\n";
+    else
+        header += "text/html\r\n";
     std::stringstream contentLengthStream;
     contentLengthStream << contentLength;
     header += "Content-Length: " + contentLengthStream.str() + "\r\n";
@@ -73,6 +77,21 @@ std::string Response::normal_pages_header(size_t contentLength)
 
     return header;
 }
+std::string Response::get_last()
+{
+    std::string path = req[client_fd].target;
+   size_t h = 0;
+    while ((h = path.find('/')) != std::string::npos)
+    {
+
+        if (h != path.length() - 1)
+            path = path.substr(h + 1);
+        else
+            break;
+    }
+    // std::cout <<"here " <<path << std::endl;
+    return path;
+}
 std::string Response::redirect_pages_header()
 {
     std::string header;
@@ -80,7 +99,7 @@ std::string Response::redirect_pages_header()
     header += req[client_fd].status;
     header += "\r\n";
     header += "Location: ";
-    header += req[client_fd].target;
+    header += get_last();
     header += "\r\n";
     header += "\r\n";
 
@@ -157,7 +176,6 @@ std::string Response::generateDirectoryListing()
     std::stringstream htmlStream;
     htmlStream << "<html><body>\n";
     htmlStream << "<h1>Directory Listing: " << req[client_fd].target << "</h1>\n";
-    std::string haha = "";
     DIR *dir = opendir(req[client_fd].target.c_str());
 
     if (dir)

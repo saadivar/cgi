@@ -319,7 +319,7 @@ Request &Request::operator=(Request const &req)
 
     this->chunked_file_size_response = req.chunked_file_size_response;
 
-    is_forked_before = req.is_forked_before;
+    
     this->still_reading = req.still_reading;
     this->epol = req.epol;
     this->cgi_flag = req.cgi_flag;
@@ -391,7 +391,7 @@ void Request::get_post_status()
     // }
     if (find_key("Transfer-Encoding", StoreHeaders) && valueOfkey("Transfer-Encoding", StoreHeaders) == "chunked")
     {
-        if (target.find(".cpp") != target.npos || target.find(".py") != target.npos)
+        if (target.find(".php") != target.npos || target.find(".py") != target.npos)
             outfile_name = "directorie/upload/" + get_current_time() + ".txt";
         else
             outfile_name = "directorie/upload/" + get_current_time() + extension;
@@ -403,12 +403,19 @@ void Request::get_post_status()
     else if (find_key("Content-Type", StoreHeaders) && valueOfkey("Content-Type", StoreHeaders).find("boundary") != std::string::npos)
     {
         Post_status = "boundary";
-        boundary_separater = get_separater(valueOfkey("Content-Type", StoreHeaders));
+        if (target.find(".php") != target.npos)
+        {
+              outfile_name = "directorie/upload/" + get_current_time() + ".txt";
+              Post_status = "Bainary/Row";
+        }
+          
+        else
+            boundary_separater = get_separater(valueOfkey("Content-Type", StoreHeaders));
     }
 
     else
     {
-        if (target.find(".cpp") != target.npos || target.find(".py") != target.npos)
+        if (target.find(".php") != target.npos || target.find(".py") != target.npos)
             outfile_name = "directorie/upload/" + get_current_time() + ".txt";
         else
             outfile_name = "directorie/upload/" + get_current_time() + extension;
@@ -612,12 +619,7 @@ Request::Request(std::string req, Server server)
     this->content_type = "";
     this->epol = 1;
     this->content_lenght = "";
-    this->cgi_flag = 0;
-    is_forked_before = 0;
-    pid_of_the_child = -1;
-    time_of_child = -1;
-    header_for_cgi_resp = 0;
-    child_exited = 0;
+
     ft_split(req, "\r\n", myHeaders);
     fill_type(method, target, httpVersion, myHeaders, &filmap);
    
