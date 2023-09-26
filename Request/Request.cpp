@@ -90,6 +90,7 @@ Request::Request(std::string req, Server server)
     time_of_child = -1;
     header_for_cgi_resp = 0;
     child_exited = 0;
+    this->pipefd[0] = -1;
     ft_split(req, "\r\n", myHeaders);
     fill_method_type();
     //std::cout << target << std::endl;

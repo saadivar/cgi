@@ -489,7 +489,7 @@ int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
             {
                 perror("pipe");
             }
-            
+           
             req[client_fd].pid_of_the_child = fork();
 
             if (req[client_fd].pid_of_the_child  == -1)
@@ -520,14 +520,15 @@ int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
         } 
         else 
         { 
-            // ep->ev.events = EPOLLIN;
-            // ep->ev.data.fd = req[client_fd].pipefd[0];
-            // if (epoll_ctl(ep->ep_fd, EPOLL_CTL_ADD, req[client_fd].pipefd[0], &ep->ev) == -1)
-            // {
-            //     std::cerr << "hamud" << std::endl;
-            //     exit(1);
-            //     close(req[client_fd].pipefd[0]);
-            // }
+           
+            ep->ev.events = EPOLLIN ;
+            ep->ev.data.fd = req[client_fd].pipefd[0];
+            if (epoll_ctl(ep->ep_fd, EPOLL_CTL_ADD, req[client_fd].pipefd[0], &ep->ev) == -1)
+            {
+                std::cerr << "hamud" << std::endl;
+                exit(1);
+                close(req[client_fd].pipefd[0]);
+            }
             req[client_fd].time_of_child = clock();
             close(req[client_fd].pipefd[1]); 
         }
@@ -559,8 +560,10 @@ int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
     }
     else if(resp.is_cgi() && req[client_fd].is_forked_before == 1 && req[client_fd].child_exited == 1)
     {
-            // if(req[client_fd].pipefd[0] & EPOLLIN)
-            // {
+        for(int i = 0 ;i < fd_ready ; i++ )
+        {
+            if(req[client_fd].pipefd[0] == ep->events[i].data.fd)
+            {
                 char buffer[1000000];
                 ssize_t bytesRead;
                 if ((bytesRead = read(req[client_fd].pipefd[0], buffer, sizeof(buffer))) > 0)
@@ -570,17 +573,16 @@ int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
                     std::string response_header = resp.normal_pages_header1(bytesRead );
                     write(client_fd, response_header.c_str(), response_header.size());
                     write(client_fd,buffer,bytesRead);
+                    std::remove(req[client_fd].outfile_name.c_str());
+                    epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, req[client_fd].pipefd[0], NULL);
+                    close(req[client_fd].pipefd[0]);
+                    return 0;
                 }
-            // }
-            // else
-            // {
-            //     std::cerr << "here "<< std::endl;
-            //     return 1;
-            // }
-        // }
-        std::remove(req[client_fd].outfile_name.c_str());
-        close(req[client_fd].pipefd[0]);
-        return 0;
+            }
+           
+        }
+        return 1;
+        
     }
     else if (resp.is_delete() || resp.is_error() || resp.is_post())
     {
@@ -694,10 +696,11 @@ void run(std::vector<Server> servers, epol *ep)
     while (1)
     {
         // std::cout << "waiting for new client ..." << std::endl;
-        int fd_ready = epoll_wait(ep->ep_fd, ep->events, 1, -1);
+        int fd_ready = epoll_wait(ep->ep_fd, ep->events, 10, -1);
+        
         if (fd_ready == -1)
             err("epoll_wait");
-        for (int i = 0; i < fd_ready; ++i)
+        for (int i = 0; i < fd_ready; i++)
         {
             for (int j = 0; j < servers.size(); j++)
             {
@@ -731,5 +734,6 @@ void run(std::vector<Server> servers, epol *ep)
         }
     }
 }
+
 
 
