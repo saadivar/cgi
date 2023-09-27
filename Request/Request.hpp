@@ -29,7 +29,7 @@ class Request
         std::string status;
         std::ifstream fd_file;
         
-        size_t chunk_size;
+        int chunk_size;
         size_t Bytes_readed;
         size_t chunked_file_size_response;
 
@@ -45,6 +45,7 @@ class Request
         std::string content_type_python;
         std::string content_type;
         std::string content_lenght;
+        std::string cookie;
         std::string accept;
         std::map<std::string, std::string> pages;
         std::map<std::string, std::string> extensions;

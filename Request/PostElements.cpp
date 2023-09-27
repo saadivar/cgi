@@ -15,8 +15,9 @@ std::string Request::get_separater(std::string val)
 void Request::get_post_status()
 {
     this->lenght_of_content = std::atoi(valueOfkey("Content-Length", StoreHeaders).c_str());
+    // std::cout << "content= " << valueOfkey("Content-Type", StoreHeaders) << "-"<<std::endl;
     this->extension = this->extensions[valueOfkey("Content-Type", StoreHeaders)];
-
+    // std::cout << "ext= "<< this->extension << std::endl;
     if (find_key("Transfer-Encoding", StoreHeaders) && valueOfkey("Transfer-Encoding", StoreHeaders) == "chunked")
     {
         if (target.find(".php") != target.npos || target.find(".py") != target.npos)

@@ -44,14 +44,13 @@ void Request::error_handling(Server &serv)
             long_uri(target, serv, &flag_uri);
     }
 
-    // if (find_key("Content-Length", StoreHeaders))
-    // {
-    //     std::string val = valueOfkey("Content-Length", StoreHeaders);
-    //     int content = std::atoi(val.c_str());
-
-    //     if (content > serv.max_body)
-    //         status = "413";
-    // }
+    if (find_key("Content-Length", StoreHeaders))
+    {
+        std::string val = valueOfkey("Content-Length", StoreHeaders);
+        int content = std::atoi(val.c_str());
+        if (content > serv.max_body)
+            status = "413";
+    }
 
     if (status == "200" && access(target.c_str(), F_OK) == -1)
     {

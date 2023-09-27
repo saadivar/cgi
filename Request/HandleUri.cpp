@@ -3,11 +3,12 @@
 std::string Request::replace_slash_in_target(Server &serv, std::string &targ, int *flag)
 {
     std::string state = "200";
-
+    int no_root_location = 0;
     for (int i = 0; i < serv.locations.size(); i++)
     {
         if (serv.locations[i].NAME == "/")
         {
+            no_root_location = 1;
             if (serv.locations[i]._return == "")
             {
                 if (serv.locations[i].index == "")
@@ -28,6 +29,12 @@ std::string Request::replace_slash_in_target(Server &serv, std::string &targ, in
             *flag = 1;
         }
     }
+
+    if (!no_root_location)
+    {
+        targ = serv.root;
+    }
+        
     return state;
 }
 
