@@ -50,6 +50,8 @@ class Request
         std::map<std::string, std::string> pages;
         std::map<std::string, std::string> extensions;
 
+        int last_chunk_bytes;
+
 
     public :
 

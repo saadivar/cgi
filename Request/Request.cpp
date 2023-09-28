@@ -52,6 +52,7 @@ Request &Request::operator=(Request const &req)
     this->pipefd[0] = req.pipefd[0];
     this->pipefd[1] = req.pipefd[1];
     this->cookie = req.cookie;
+    this->last_chunk_bytes = req.last_chunk_bytes;
     return (*this);
 }
 
@@ -64,6 +65,7 @@ Request::Request(std::string req, Server server)
     this->lenght_Readed = 0;
     this->calcul_chunk_flag = 0;
     this->Bytes_readed = 1024;
+    this->last_chunk_bytes = 0;
     this->open_boundry_file = 0;
     this->chunk_size = 0;
     this->flag_uri = 0;
@@ -120,8 +122,6 @@ Request::Request(std::string req, Server server)
         
     }
     generate_error_page(server); 
-
- 
 } 
 
 Request::~Request()
