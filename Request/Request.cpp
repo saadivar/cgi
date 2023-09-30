@@ -52,11 +52,14 @@ Request &Request::operator=(Request const &req)
     this->pipefd[0] = req.pipefd[0];
     this->pipefd[1] = req.pipefd[1];
     this->cookie = req.cookie;
-    this->last_chunk_bytes = req.last_chunk_bytes;
+    this->path_to_upload = req.path_to_upload;
+    this->extensions = req.extensions;
+    this->state_of_cgi = req.state_of_cgi;
+    this->state_of_upload = req.state_of_upload;
     return (*this);
 }
 
-Request::Request(std::string req, Server server)
+void Request::init()
 {
     this->status = "200";
     this->header_flag = 0;
@@ -65,7 +68,6 @@ Request::Request(std::string req, Server server)
     this->lenght_Readed = 0;
     this->calcul_chunk_flag = 0;
     this->Bytes_readed = 1024;
-    this->last_chunk_bytes = 0;
     this->open_boundry_file = 0;
     this->chunk_size = 0;
     this->flag_uri = 0;
@@ -76,16 +78,31 @@ Request::Request(std::string req, Server server)
     this->header_for_cgi_resp = 0;
     this->child_exited = 0;
     this->pipefd[0] = -1;
-    ft_split(req, "\r\n", myHeaders);
-    fill_method_type();
-    fill_query();   
-    //default error page
+    this->path_to_upload = "directorie/upload/";
+    this->state_of_cgi = 1;
+    this->state_of_upload = 1;
+
     
+}
+
+Request::Request(std::string req, Server server)
+{
+    init();
+    if (!server.upload_path.empty())
+    {
+        if (server.upload_path[server.upload_path.length() - 1] != '/')
+            server.upload_path += "/";
+        this->path_to_upload = server.upload_path;
+    }
+    ft_split(req, "\r\n", myHeaders);
+    fill_method_type();    
+    fill_query();
+    encoded_uri();
     fill_error_pages_map();
     fill_extensions_map();
     this->uri_for_response = target;
     fill_headers();
-    
+
    //print Headers
     // for (int i = 0; i < StoreHeaders.size(); i++)
     //     std::cout << "val = " << StoreHeaders[i].first << " key = " << StoreHeaders[i].second << std::endl;
@@ -94,20 +111,23 @@ Request::Request(std::string req, Server server)
 
     if (method == "POST" && status == "200")
     {
-        this->endOfrequest = 0;
-        
+        this->endOfrequest = 0;  
         get_post_status();
     }
-    if(status == "200")
+    if (status == "200" && method != "DELETE")
         directory_moved_permanently();
-
     if (method == "DELETE" && status == "200")
     {
-        Delete_methode();
-        if (status == "200")
-            target = "error/200.html";
+        if (target.find("directorie/upload") != target.npos)
+        {
+            Delete_methode();
+            if (status == "200")
+                target = "error/200.html";
+        }
+        else
+            status = "401";
     }
-   
+    
     if (find_key("Content-Length", StoreHeaders) || find_key("Content-Type", StoreHeaders))
     {
         content_type = "CONTENT_TYPE=" + valueOfkey("Content-Type", StoreHeaders);
@@ -116,14 +136,10 @@ Request::Request(std::string req, Server server)
     this->accept = valueOfkey("Accept", StoreHeaders);
     this->cookie = "HTTP_COOKIE=";
     if (find_key("Cookie", StoreHeaders))
-    {
         this->cookie += valueOfkey("Cookie", StoreHeaders);
-
-        
-    }
-    generate_error_page(server); 
+    generate_error_page(server);
+    std::cout << "----------->"<< target <<std::endl;
 } 
 
-Request::~Request()
-{
-}
+Request::~Request(){
+} 

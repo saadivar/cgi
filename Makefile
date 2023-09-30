@@ -17,8 +17,6 @@ NAME = webserve
 
 all: $(NAME)
 
-
-
 $(NAME): $(OBJ)
 	$(CXX) $(CPPFLAGS) $(SRC) -o $(NAME)
 

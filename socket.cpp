@@ -12,7 +12,7 @@ std::string get_current_time()
     std::time_t currentTime;
     std::time(&currentTime);
 
-    // Convert to a string and print
+
     char timeString[100]; // Adjust the buffer size as needed
     std::strftime(timeString, sizeof(timeString), "%Y-%m-%d-%H:%M:%S", std::localtime(&currentTime));
     std::string time(timeString);
@@ -20,49 +20,13 @@ std::string get_current_time()
     return (time);
 }
 
-std::string get_extension(std::string content_type)
-{
-    if (content_type.find("text/css") != std::string::npos)
-        return (".css");
-    else if (content_type.find("video/mp4") != std::string::npos)
-        return (".mp4");
-    else if (content_type.find("audio/mp4") != std::string::npos)
-        return (".mp4");
-    else if (content_type.find("text/csv") != std::string::npos)
-        return (".csv");
-    else if (content_type.find("image/gif") != std::string::npos)
-        return (".gif");
-    else if (content_type.find("text/html") != std::string::npos)
-        return (".html");
-    else if (content_type.find("image/x-icon") != std::string::npos)
-        return (".ico");
-    else if (content_type.find("image/jpeg") != std::string::npos)
-        return (".jpeg");
-    else if (content_type.find("image/jpeg") != std::string::npos)
-        return (".jpg");
-    else if (content_type.find("application/javascript") != std::string::npos)
-        return (".py");
-    else if (content_type.find("application/json") != std::string::npos)
-        return (".pyon");
-    else if (content_type.find("image/png") != std::string::npos)
-        return (".png");
-    else if (content_type.find("application/pdf") != std::string::npos)
-        return (".pdf");
-    else if (content_type.find("image/svg+xml") != std::string::npos)
-        return (".svg");
-    else if (content_type.find("text/plain") != std::string::npos)
-        return (".txt");
-    return ("");
-}
-
-
-
 size_t get_chunk_size(std::string str)
 {
     size_t pos;
     pos = str.find("\r\n");
     char *stat;
     size_t chunk_size = std::strtol(str.substr(0, pos).c_str(), &stat, 16);
+
     return chunk_size;
 }
 
@@ -70,26 +34,94 @@ void remove_size_of_chunk(std::string &str)
 {
     str = str.substr(str.find("\n") + 1);
 }
+
 std::string get_file_extension(std::string &str,int client_fd, std::map<int, Request> &req)
 {
     std::string ext;
     size_t pos;
-   
-    pos = str.find("Content-Type: ");
 
+    pos = str.find("Content-Disposition: ");
     str = str.substr(pos);
-    
-    pos = str.find("\n");
-    ext = str.substr(14,pos - 15);
-    
-    pos = str.find("\r\n\r\n"); 
+    pos = str.find("\r\n"); 
+    str = str.substr(pos + 2);
 
-    str = str.substr(pos + 4);
-    req[client_fd].content_type_python = ext;
-    return (get_extension(ext));
+    std::string tmp;
+    pos = str.find("\n");
+    tmp  = str.substr(0, pos);
+    if(tmp.find("Content-Type: ") != tmp.npos)
+    {
+        pos = str.find("Content-Type: ");
+        if(pos != str.npos)
+        {
+            str = str.substr(pos);
+            pos = str.find("\n");
+            ext = str.substr(14,pos - 15);
+            pos = str.find("\r\n\r\n"); 
+            str = str.substr(pos + 4);
+            return (req[client_fd].extensions[ext]);
+        }
+    } 
+    str = str.substr(2);
+    return(".txt");
 }
 
+void write_content(int client_fd, std::map<int, Request> &req, int close, std::string &content, int size)
+{
+    req[client_fd].outfile.write(content.c_str(), size);
+    req[client_fd].outfile.flush();
+    if (close)
+        req[client_fd].outfile.close();
+}
 
+std::string generate_file_name(std::string &str, int client_fd, std::map<int, Request> &req)
+{
+    std::string time_tmp;
+    std::stringstream s;
+    s << Request::num_file++;
+    time_tmp +=  s.str() ; 
+    std::string pt;
+
+    pt = time_tmp + get_file_extension(str, client_fd, req);              
+    if (req[client_fd].target.find(".php") != req[client_fd].target.npos || req[client_fd].target.find(".py") != req[client_fd].target.npos)
+        pt += ".txt";
+    return pt;
+}
+
+void open_file(std::string &str, int client_fd, std::map<int, Request> &req)
+{
+    req[client_fd].outfile_name = req[client_fd].path_to_upload + generate_file_name(str, client_fd, req);
+    req[client_fd].outfile.open(req[client_fd].outfile_name.c_str() , std::ios::binary);
+    req[client_fd].open_boundry_file = 1;
+}
+
+void multiple_file_in_chunk(std::string &str, int client_fd, std::map<int, Request> &req, int pos)
+{
+    while(1)
+    {
+        if(req[client_fd].open_boundry_file == 0)
+        {
+            std::cout <<"here 1" <<std::endl;
+            std::cout << "======="<< str << "========="<<std::endl;
+            open_file(str,  client_fd, req);
+        }
+
+        else if ((pos = str.find(req[client_fd].boundary_separater)) != str.npos)
+        {
+            std::string s = str.substr(pos);
+            if(strncmp(s.c_str(),(req[client_fd].boundary_separater + "--").c_str(), req[client_fd].boundary_separater.length() + 2 ) == 0)
+            {
+                write_content(client_fd, req, 1, str, pos);
+                req[client_fd].epol = 0;
+                return ;
+            }
+            else 
+            {
+                write_content(client_fd, req, 1, str, pos);
+                req[client_fd].open_boundry_file = 0;
+            }
+        }
+    }
+}
 
 void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::map<int, Request> &req)
 {
@@ -132,6 +164,7 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
                 req[client_fd].epol = 0;
         }
     }
+    
     else
     {
         size_t size = req[client_fd].Bytes_readed;
@@ -184,28 +217,28 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
                     return ;
                 }
                 req[client_fd].chunk_size -= str.size();
-                if(n_read ==  req[client_fd].Bytes_readed - 1 && req[client_fd].Bytes_readed < 1024 )
+                if (n_read ==  req[client_fd].Bytes_readed - 1 && req[client_fd].Bytes_readed < 1024 )
                     req[client_fd].outfile.write(str.c_str(), str.size() - 2);
                 else
                     req[client_fd].outfile.write(str.c_str(), str.size() );
                 req[client_fd].outfile.flush();
-                if(n_read < req[client_fd].Bytes_readed - 1)
+                if (n_read < req[client_fd].Bytes_readed - 1)
                     req[client_fd].Bytes_readed -= n_read;
-                else if(req[client_fd].Bytes_readed < 1024)
+                else if (req[client_fd].Bytes_readed < 1024)
                 {
                     req[client_fd].Bytes_readed = 1024;
                     req[client_fd].calcul_chunk_flag = 0;
                 }
                 else if (req[client_fd].chunk_size < req[client_fd].Bytes_readed)
                     req[client_fd].Bytes_readed = req[client_fd].chunk_size + 3;      
-                memset(rec_b, 0, size - 1);
+                memset (rec_b, 0, size - 1);
             }
         }
         
         else if (req[client_fd].Post_status == "boundary")
         {
             size_t pos;
-            
+            size_t pos1;
             if ((n_read = read(client_fd, rec_b, size - 1)) > 0)
             {
                 std::string str;
@@ -214,105 +247,37 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
                 str.append(rec_b, n_read);
                 if (req[client_fd].open_boundry_file == 0)
                 {
-                    std::string time_tmp;
-                    std::stringstream s;
-                    s << Request::num_file++;
-                    time_tmp +=  s.str() ; 
-                    std::string pt;
-
-                    pt = time_tmp + get_file_extension(str, client_fd, req);              
-                    if (req[client_fd].target.find(".php") != req[client_fd].target.npos || req[client_fd].target.find(".py") != req[client_fd].target.npos)
-                    {
-                        std::cout << "no"<<std::endl;
-                        pt += ".txt";
-                    }
-                
-                    req[client_fd].outfile_name = "directorie/upload/" + pt;
-                    req[client_fd].outfile.open(("directorie/upload/" + pt).c_str() , std::ios::binary);
-                    req[client_fd].open_boundry_file = 1;
+                    std::cout <<"here " <<std::endl;
+                    std::cout << "======="<< str << "========="<<std::endl;
+                   open_file(str,  client_fd, req);
                 }
+
                 if ((str.find(req[client_fd].boundary_separater)) == str.npos && (str.find(req[client_fd].boundary_separater + "--")) == str.npos) //if no separater in the chunk
                 {
                     int rest = str.length() - req[client_fd].boundary_separater.length();
-                    req[client_fd].outfile.write(str.c_str(), rest);
-                    req[client_fd].outfile.flush();
-                    req[client_fd].rest_of_boundry = str.substr(rest);  
+                    write_content(client_fd, req, 0, str, rest);
+                    req[client_fd].rest_of_boundry = str.substr(rest);
                 }
-                else if((pos = str.find(req[client_fd].boundary_separater)) != str.npos  && (str.find(req[client_fd].boundary_separater + "--")) != str.npos) //both
+                else if((pos = str.find(req[client_fd].boundary_separater)) != str.npos  && (pos1 = str.find(req[client_fd].boundary_separater + "--")) != str.npos && pos != pos1) //both
                 {
-                    req[client_fd].outfile.write(str.c_str(), pos);
-                    req[client_fd].outfile.flush();
-                    req[client_fd].outfile.close();
+                    
+                    write_content(client_fd, req, 1, str, pos);
                     req[client_fd].open_boundry_file = 0;
-                    while(1)
-                    {
-                        //handle rest parts need cleaning code
-                        if(req[client_fd].open_boundry_file == 0)
-                        {
-                            std::string time_tmp;
-                            std::stringstream s;
-                            s << Request::num_file++;
-                            time_tmp +=  s.str() ;
-                            std::string pt;
-                            try
-                            {
-                                pt = time_tmp + get_file_extension(str, client_fd, req);        
-                                if (req[client_fd].target.find(".php") != req[client_fd].target.npos || req[client_fd].target.find(".py") != req[client_fd].target.npos)
-                                    pt += ".txt";
-                                req[client_fd].outfile_name = "directorie/upload/" + pt;
-                            }
-                            catch(std::exception &e)
-                            {
-                                req[client_fd].epol = 0;
-                                return ;  
-                            }
-                            req[client_fd].outfile.open(("directorie/upload/" + pt).c_str() , std::ios::binary);
-                            req[client_fd].open_boundry_file = 1;
-                            
-                        }
-                        else if ((pos = str.find(req[client_fd].boundary_separater)) != str.npos)
-                        {
-                            std::string s = str.substr(pos);
-                            if(strncmp(s.c_str(),(req[client_fd].boundary_separater + "--").c_str(),req[client_fd].boundary_separater.length() + 2 ) == 0)
-                            {
-                                
-                                req[client_fd].outfile.write(str.c_str(), pos);
-                                req[client_fd].outfile.flush();
-                                req[client_fd].outfile.close();
-                                req[client_fd].epol = 0;
-                                return ;
-                            }
-                            else 
-                            {
-                                req[client_fd].outfile.write(str.c_str(), pos);
-                                req[client_fd].outfile.flush();
-                                req[client_fd].outfile.close();
-                                req[client_fd].open_boundry_file = 0;
-                            }
-                        }
-                    }
+                    multiple_file_in_chunk(str, client_fd, req, pos);
                 }
-                
-                else if ((pos = str.find(req[client_fd].boundary_separater)) != str.npos  ) // midle separater
-                {
-                    int rest = str.length() - (str.length() - pos);
-
-                    req[client_fd].outfile.write(str.c_str(), rest);
-                    req[client_fd].outfile.flush();
-                    req[client_fd].rest_of_boundry = str.substr(pos + 1);
-                    req[client_fd].open_boundry_file = 0;
-                    req[client_fd].outfile.close();
-                }
-               
                 else if((pos = str.find(req[client_fd].boundary_separater + "--")) != str.npos) //last separater
                 {
                     int rest = str.length() - (str.length() - pos);
-
-                    req[client_fd].outfile.write(str.c_str(), rest);
-                    req[client_fd].outfile.flush();
-                    req[client_fd].outfile.close();
+                    write_content(client_fd, req, 1, str, rest);
                     req[client_fd].epol = 0;
                     return ;
+                }
+                else if ((pos = str.find(req[client_fd].boundary_separater)) != str.npos  ) // midle separater
+                {
+                    int rest = str.length() - (str.length() - pos);
+                    write_content(client_fd, req, 1, str, rest);
+                    req[client_fd].rest_of_boundry = str.substr(pos + 1);
+                    req[client_fd].open_boundry_file = 0; 
                 }
                 memset(rec_b, 0, size - 1);
             }    
@@ -341,14 +306,8 @@ std::string get_last(std::string path)
         else
             break;
     }
-    // std::cout <<"here " <<path << std::endl;
     return path;
 }
-
-
-
-
-
 
 struct cgi_args
 {
@@ -364,7 +323,6 @@ void fill_envirements(cgi_args *cgi, std::map<int, Request> &req, int client_fd)
     script = "SCRIPT_FILENAME=" + req[client_fd].target ;
     path = "PATH_INFO=" + req[client_fd].target ;//req[client_fd].target
 
-    //std::cerr << "URI -> " << req[client_fd].target << std::endl;
   
     if ((req[client_fd].target.find(".php")) != std::string::npos)
         cgi->args[0] = (char*)"/usr/bin/php-cgi";
@@ -399,6 +357,7 @@ void fill_envirements(cgi_args *cgi, std::map<int, Request> &req, int client_fd)
         cgi->env[9] = NULL;
     }
 }
+
 #include <sys/types.h>
 #include <sys/wait.h>
 #include <iostream>
@@ -408,11 +367,11 @@ void fill_envirements(cgi_args *cgi, std::map<int, Request> &req, int client_fd)
 
 int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
 {
+
     signal(SIGPIPE, SIG_IGN);
     Response resp(client_fd,req);
-    if(resp.is_cgi() && req[client_fd].is_forked_before == 0)
-    {
-        
+    if(resp.is_cgi() && req[client_fd].is_forked_before == 0 && req[client_fd].state_of_cgi == 1)
+    { 
         if(req[client_fd].is_forked_before == 0)
         {
             req[client_fd].is_forked_before = 1;
@@ -471,7 +430,7 @@ int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
         {
             clock_t end = clock();
             double elapsed_seconds = static_cast<double>(end - req[client_fd].time_of_child) / CLOCKS_PER_SEC;
-            if(elapsed_seconds >= 28)
+            if(elapsed_seconds >= 4)
             {
                 kill(req[client_fd].pid_of_the_child, SIGKILL);
                 req[client_fd].status = "503";
@@ -533,26 +492,29 @@ int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
         return 1;
         
     }
-    else if (resp.is_delete() || resp.is_error() || resp.is_post())
+    else if(resp.is_post())
     {
         std::string path;
-        if(resp.is_delete() || resp.is_error())
-            path = req[client_fd].target;
-        else
-        {
-            path = "succes.html";
-             req[client_fd].status = "201";
-        }
+        path = "succes.html";
         resp.response_by_a_page(path);
         return 0;
     }
+    else if (resp.is_delete() || resp.is_error()  )
+    {
+        
+        resp.response_by_a_page(req[client_fd].target);
+        return 0;
+        
+    }
     else if(resp.is_redirection())
     {
-        write(client_fd, resp.redirect_pages_header().c_str(), resp.redirect_pages_header().size());
+        std::string respon = resp.redirect_pages_header();
+        write(client_fd, respon.c_str(), respon.size()); 
         return 0;
     }
     else if (resp.is_get())
     {
+       
        if (resp.get_content_type() == "")
         {
             if (!resp.directorie_list())
@@ -588,13 +550,13 @@ uint32_t ipToUint32(std::string &ip)
 void fill_ser_Add(Server &ser, int i)
 {
     ser.seraddr_s[i].sin_family = AF_INET;
-    // ser.seraddr_s[i].sin_addr.s_addr = htonl(ipToUint32(ser.host));
-    ser.seraddr_s[i].sin_addr.s_addr = INADDR_ANY;
+    ser.seraddr_s[i].sin_addr.s_addr = htonl(ipToUint32(ser.host));
     ser.seraddr_s[i].sin_port = htons(ser.listen[i]);
 }
 
 void init(Server &ser, epol *ep)
 {
+    std::cerr << ser.listen.size() <<std::endl;
     for (int i = 0; i < ser.listen.size(); i++)
     {
         if ((ser.server_sock[i] = socket(AF_INET, SOCK_STREAM, 0)) < 0)
@@ -619,17 +581,19 @@ void init(Server &ser, epol *ep)
     }
 }
 
-void accepting_new_clients(int i,int j,std::vector<Server>& servers,epol *ep,std::map<int, Request>& requests)
+void accepting_new_clients(int i,int j,std::vector<Server>& servers,epol *ep,std::map<int, Request>& requests,std::map<int,clock_t> &timer)
 {
     if (std::find(servers[j].server_sock.begin(), servers[j].server_sock.end(), ep->events[i].data.fd) != servers[j].server_sock.end())
     {
         int client_fd = accept(ep->events[i].data.fd, NULL, NULL);
+
         if (client_fd == -1)
         {
             std::cout << "accepting" << std::endl;
             return;
         }
-        ep->ev.events = EPOLLIN | EPOLLOUT;
+        timer[client_fd]= clock();
+        ep->ev.events = EPOLLIN | EPOLLOUT | EPOLLERR | EPOLLHUP | EPOLLRDHUP;
         ep->ev.data.fd = client_fd;
         servers[j].fd_sock.push_back(client_fd);
         if (epoll_ctl(ep->ep_fd, EPOLL_CTL_ADD, client_fd, &ep->ev) == -1)
@@ -644,6 +608,8 @@ void run(std::vector<Server> servers, epol *ep)
 {
     // socklen_t len_cle = sizeof(client_addr);
     std::map<int, Request> requests;
+    std::map<int, clock_t> timer;
+
     while (1)
     {
         // std::cout << "waiting for new client ..." << std::endl;
@@ -655,13 +621,27 @@ void run(std::vector<Server> servers, epol *ep)
         {
             for (int j = 0; j < servers.size(); j++)
             {
-                accepting_new_clients(i,j,servers,ep,requests);
+                accepting_new_clients(i,j,servers,ep,requests,timer);
             }
             for (int j = 0; j < servers.size(); j++)
             {
                 if (std::find(servers[j].fd_sock.begin(), servers[j].fd_sock.end(), ep->events[i].data.fd) != servers[j].fd_sock.end())
                 {
-                    if (ep->events[i].events & EPOLLIN && (requests.count(ep->events[i].data.fd) == 0 || requests[ep->events[i].data.fd].epol == 1)) ////////request
+                    if(ep->events[i].events & EPOLLERR || ep->events[i].events & EPOLLHUP || ep->events[i].events & EPOLLRDHUP)
+                    {
+                        if(requests[ep->events[i].data.fd].is_forked_before == 1 && requests[ep->events[i].data.fd].child_exited == 0)
+                        {
+                            std::cerr << "sss " << std::endl;
+                            kill(requests[ep->events[i].data.fd].pid_of_the_child,SIGKILL);
+                        }
+                        epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, ep->events[i].data.fd, NULL);
+                        close(ep->events[i].data.fd);
+                        std::map<int, Request>::iterator it = requests.find(ep->events[i].data.fd);
+                        if (it != requests.end())
+                            requests.erase(it);
+                        servers[j].fd_sock.erase(std::find(servers[j].fd_sock.begin(), servers[j].fd_sock.end(), ep->events[i].data.fd));
+                    }
+                    else if (ep->events[i].events & EPOLLIN && (requests.count(ep->events[i].data.fd) == 0 || requests[ep->events[i].data.fd].epol == 1)) ////////request
                     {
                         request_part(servers, ep, ep->events[i].data.fd, requests);
                         continue;
@@ -670,12 +650,26 @@ void run(std::vector<Server> servers, epol *ep)
                     {
                         if (!response(ep, ep->events[i].data.fd, requests,fd_ready))
                         {
+                            if(requests[ep->events[i].data.fd].is_forked_before == 1 && requests[ep->events[i].data.fd].child_exited == 0)
+                                kill(requests[ep->events[i].data.fd].pid_of_the_child,SIGKILL);
                             epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, ep->events[i].data.fd, NULL);
                             close(ep->events[i].data.fd);
                             std::map<int, Request>::iterator it = requests.find(ep->events[i].data.fd);
                             if (it != requests.end())
                                 requests.erase(it);
                             servers[j].fd_sock.erase(std::find(servers[j].fd_sock.begin(), servers[j].fd_sock.end(), ep->events[i].data.fd));
+                        }
+                    }
+                    else
+                    {
+                        clock_t end = clock();
+                        double elapsed_seconds = static_cast<double>(end -timer[ep->events[i].data.fd] ) / CLOCKS_PER_SEC;
+                        if(elapsed_seconds >= 10)
+                        {
+                            epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, ep->events[i].data.fd, NULL);
+                                close(ep->events[i].data.fd);
+                                servers[j].fd_sock.erase(std::find(servers[j].fd_sock.begin(), servers[j].fd_sock.end(), ep->events[i].data.fd));
+                                timer.erase(ep->events[i].data.fd);
                         }
                     }
                 }
@@ -685,6 +679,3 @@ void run(std::vector<Server> servers, epol *ep)
         }
     }
 }
-
-
-

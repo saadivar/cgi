@@ -1,41 +1,51 @@
 #include "Request.hpp"
 
-std::string Request::replace_slash_in_target(Server &serv, std::string &targ, int *flag)
+void Request::replace_slash_in_target(Server &serv)
 {
-    std::string state = "200";
     int no_root_location = 0;
+
     for (int i = 0; i < serv.locations.size(); i++)
     {
         if (serv.locations[i].NAME == "/")
         {
             no_root_location = 1;
+            state_of_cgi = serv.locations[i].cgi;
+            state_of_upload = serv.locations[i].upload_s;
+            if ((method == "GET" && serv.locations[i].GET == false) 
+                || (method == "POST" && serv.locations[i].POST == false) 
+                    || (method == "DELETE" && serv.locations[i].DELETE == false))
+                        status = "405";
+            if (method == "POST" && this->state_of_upload == 0)
+            {
+                if (target.find(".php") == target.npos && target.find(".py") == target.npos)
+                    status = "403"; 
+            }
             if (serv.locations[i]._return == "")
             {
                 if (serv.locations[i].index == "")
                 {
-                    if (serv.locations[i].autoindex == true)
-                        targ = serv.locations[i].root;
+                    if (serv.index == "")
+                    {
+                        if (serv.locations[i].autoindex == true)
+                            target = serv.locations[i].root;
+                        else
+                            status = "403";
+                    }
                     else
-                        state = "403";
+                        target = serv.index;
                 }
                 else
-                    targ = serv.locations[i].root + "/" + serv.locations[i].index;
+                    target = serv.locations[i].index;
             }
             else
             {
-                targ = serv.locations[i]._return;
-                state = "301";
+                target = serv.locations[i]._return;
+                return ;
             }
-            *flag = 1;
         }
     }
-
     if (!no_root_location)
-    {
-        targ = serv.root;
-    }
-        
-    return state;
+        target = serv.root;
 }
 
 int Request::count_slash(std::string tar)
@@ -47,57 +57,138 @@ int Request::count_slash(std::string tar)
     return (count);
 }
 
-void Request::short_uri(std::string &tar, Server &serv, int *flag_uri)
+void Request::short_uri(Server &serv)
 {
     for (int i = 0; i < serv.locations.size(); i++)
     {
         if (serv.locations[i].NAME != "/")
         {
-            if (tar == serv.locations[i].NAME)
-            {
+            if (target == serv.locations[i].NAME || target.substr(1) == serv.locations[i].NAME)
+            { 
+                flag_uri = 1;
+                state_of_cgi = serv.locations[i].cgi;
+                state_of_upload = serv.locations[i].upload_s;
+                if ((method == "GET" && serv.locations[i].GET == false) 
+                    || (method == "POST" && serv.locations[i].POST == false) 
+                    || (method == "DELETE" && serv.locations[i].DELETE == false))
+                    status = "405";
+                if (method == "POST" && this->state_of_upload == 0)
+                {
+                    if (target.find(".php") == target.npos && target.find(".py") == target.npos)
+                        status = "403"; 
+                }
                 if (serv.locations[i]._return == "")
-                    tar = serv.locations[i].root;
+                {
+                    if (serv.locations[i].index == "")
+                    {
+                        if (serv.index == "")
+                        {
+                            if (serv.locations[i].autoindex == true)
+                            {
+                                target = serv.locations[i].root;
+                            }  
+                            else
+                                status = "403";
+                        }
+                        else
+                            target = serv.index;
+
+                    }
+                    else
+                        target = serv.locations[i].index;
+                }
                 else
                 {
-                    tar = serv.locations[i]._return;
-                    // status must be 301
+                    target = serv.locations[i]._return;
+                    status = "301";
                 }
-                *flag_uri = 1;
             }
         }
     }
 }
 
-void Request::long_uri(std::string &tar, Server &serv, int *flag_uri)
+void Request::long_uri(Server &serv)
 {
     std::vector<std::string> uri;
+    int slash = 0;
 
-    ft_split(tar, "/", uri);
-    tar = "";
+    if(target[0] == '/')
+        slash = 1;
+    ft_split(target, "/", uri);
+    target = "";
     int flag2;
+
     for (int j = 0; j < uri.size(); j++)
     {
         flag2 = 0;
         for (int i = 0; i < serv.locations.size(); i++)
         {
-            if (uri[j] == serv.locations[i].NAME)
+            if (serv.locations[i].NAME != "/")
             {
-                if (serv.locations[i]._return == "")
-                    tar += serv.locations[i].root;
-                else
+                if (uri[j] == serv.locations[i].NAME)
                 {
-                    tar += serv.locations[i]._return;
-                    // status must be 301
+                    slash = 0;
+                    if ((method == "GET" && serv.locations[i].GET == false) 
+                        || (method == "POST" && serv.locations[i].POST == false) 
+                        || (method == "DELETE" && serv.locations[i].DELETE == false))
+                            status = "405";
+                    if (state_of_cgi != 0)
+                        state_of_cgi = serv.locations[i].cgi;
+                    if (state_of_upload != 0)
+                        state_of_upload = serv.locations[i].upload_s;
+                    if (method == "POST" && this->state_of_upload == 0)
+                    {
+                        if (target.find(".php") == target.npos && target.find(".py") == target.npos)
+                            status = "403"; 
+                    }
+                    if (serv.locations[i]._return == "")
+                    {
+                        if (serv.locations[i].index == "")
+                        {
+                            
+                            if (serv.index == "")
+                            {
+                                if (serv.locations[i].autoindex == true)
+                                    target += serv.locations[i].root;
+                                else
+                                    status = "403";
+                            }
+                            else
+                                target = serv.index;
+                        }
+                        else
+                        {
+                            target = serv.locations[i].index;
+                            return;
+                        }    
+                    }
+                    else
+                    {
+                        target = serv.locations[i]._return;
+                        status = "301";
+                        return;
+                    }
+                    flag_uri = 1;
+                    flag2 = 1;
+                    if(status != "200")
+                        return;
                 }
-                *flag_uri = 1;
-                flag2 = 1;
             }
         }
         if (!flag2)
-            tar += uri[j];
+            target += uri[j];
         if (j < uri.size() - 1)
-            tar += "/";
+        {
+            if(target != "")
+            {
+                if (target[target.length() - 1] != '/')
+                    target += "/";
+            }
+
+        }
     }
+    if (slash)
+        target = "/" + target; 
 }
 
 void Request::directory_moved_permanently()
@@ -118,4 +209,37 @@ void Request::directory_moved_permanently()
             }
         }
     }
+}
+
+void Request::encoded_uri()
+{
+    std::string newUri;
+    std::map<std::string, char> myMap;
+
+    myMap.insert(std::pair<std::string, char>("20", ' '));
+    myMap.insert(std::pair<std::string, char>("3C", '<'));
+    myMap.insert(std::pair<std::string, char>("3E", '>'));
+    myMap.insert(std::pair<std::string, char>("23", '#'));
+    myMap.insert(std::pair<std::string, char>("25", '%'));
+    myMap.insert(std::pair<std::string, char>("3F", '?'));
+    myMap.insert(std::pair<std::string, char>("26", '&'));
+    myMap.insert(std::pair<std::string, char>("2F", '/'));
+    myMap.insert(std::pair<std::string, char>("5C", '\\'));
+    myMap.insert(std::pair<std::string, char>("3A", ':'));
+    myMap.insert(std::pair<std::string, char>("3B", ';'));
+    myMap.insert(std::pair<std::string, char>("3D", '='));
+    myMap.insert(std::pair<std::string, char>("2B", '+'));
+   
+    for (int i = 0; i < target.length(); i++)
+    {
+        if (target[i] == '%')
+        {
+            std::string value(target.substr(i + 1, 2));
+            newUri += myMap[value];
+            i += 2;
+        }   
+        else
+            newUri += target[i];
+    }
+    target = newUri;
 }

@@ -109,6 +109,8 @@ int   Server::get_max_body(Server &server, std::vector<std::string> &hold)
 
 int   Server::get_root(Server &server, std::vector<std::string> &hold)
 {
+    //check for '/'
+
     if (hold.size() != 2)
         return 0;
     server.root = hold[1];
@@ -117,17 +119,30 @@ int   Server::get_root(Server &server, std::vector<std::string> &hold)
 
 int   Server::get_index(Server &server, std::vector<std::string> &hold)
 {
+    //check for '/'
     if (hold.size() != 2)
         return 0;
     server.index = hold[1];
     return(1);
 }
+
 int Server::get_error_page(Server &server, std::vector<std::string> &hold)
 {
     if (hold.size() != 4)
         return 0;
     server.error_page.insert(std::pair<std::string, std::string>(hold[1], hold[3]));
     return (1);
+}
+
+int Server::Upload(Server &server, std::vector<std::string> &hold)
+{
+    //check for '/'
+    if (hold.size() != 2)
+        return 0;
+    if(access(hold[1].c_str(), F_OK) == -1)
+        return 0;
+    server.upload_path = hold[1];
+    return 1;
 }
 
 void    Server::fill_server(std::ifstream &c_file, Server &serv ,my_func *pointer_to_fun)
@@ -138,7 +153,7 @@ void    Server::fill_server(std::ifstream &c_file, Server &serv ,my_func *pointe
     if (!location_flag)
     {
         int flag = 0;
-        for (int i = 0; i < 7; i++)
+        for (int i = 0; i < 8; i++)
         {
             if (pointer_to_fun[i].key == holder[0])
             {
@@ -177,7 +192,7 @@ void    Server::fill_server(std::ifstream &c_file, Server &serv ,my_func *pointe
                 if(holder.size() == 0)
                     throw error_config();
                 int flag = 0;
-                for (int i = 0; i < 7; i++)
+                for (int i = 0; i < 9; i++)
                 {
                     if (ptr[i].key_location == holder[0])
                     {
@@ -245,17 +260,18 @@ Server::Server(char *config_file)
     if (!c_file.good())
         throw error_config();
 
-    my_func pointer_to_fun[7] = {
+    my_func pointer_to_fun[8] = {
         {"listen", &Server::get_listen},
         {"host", &Server::get_host},
         {"server_name", &Server::get_server_name},
         {"error_page", &Server::get_error_page},
         {"max_body", &Server::get_max_body},
         {"root", &Server::get_root},
+        {"upload", &Server::Upload},
         {"index", &Server::get_index}  
     };
 
-    my_location ptr[7] = {
+    my_location ptr[9] = {
         {"root", &location::root_name},
         {"autoindex", &location::auto_index},
         {"POST", &location::post},
@@ -263,6 +279,8 @@ Server::Server(char *config_file)
         {"DELETE", &location::deletee},
         {"index", &location::Index},
         {"return", &location::rreturn},
+        {"cgi", &location::cgi_state},
+        {"upload", &location::upload_state},
     };
 
     

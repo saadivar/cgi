@@ -227,8 +227,8 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
                         pt += ".txt";
                     }
                 
-                    req[client_fd].outfile_name = "directorie/upload/" + pt;
-                    req[client_fd].outfile.open(("directorie/upload/" + pt).c_str() , std::ios::binary);
+                    req[client_fd].outfile_name = req[client_fd].path_to_upload + pt;
+                    req[client_fd].outfile.open((req[client_fd].path_to_upload + pt).c_str() , std::ios::binary);
                     req[client_fd].open_boundry_file = 1;
                 }
                 if ((str.find(req[client_fd].boundary_separater)) == str.npos && (str.find(req[client_fd].boundary_separater + "--")) == str.npos) //if no separater in the chunk
@@ -259,14 +259,14 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
                                 pt = time_tmp + get_file_extension(str, client_fd, req);        
                                 if (req[client_fd].target.find(".php") != req[client_fd].target.npos || req[client_fd].target.find(".py") != req[client_fd].target.npos)
                                     pt += ".txt";
-                                req[client_fd].outfile_name = "directorie/upload/" + pt;
+                                req[client_fd].outfile_name = req[client_fd].path_to_upload + pt;
                             }
                             catch(std::exception &e)
                             {
                                 req[client_fd].epol = 0;
                                 return ;  
                             }
-                            req[client_fd].outfile.open(("directorie/upload/" + pt).c_str() , std::ios::binary);
+                            req[client_fd].outfile.open((req[client_fd].path_to_upload + pt).c_str() , std::ios::binary);
                             req[client_fd].open_boundry_file = 1;
                             
                         }

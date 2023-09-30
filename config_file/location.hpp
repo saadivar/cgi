@@ -40,11 +40,13 @@ class location
         std::string NAME ;
         std::string  root ;    
         std::string index ;
-        std::string _return ;  
+        std::string _return ;
         bool POST;
         bool autoindex;
         bool GET;
         bool DELETE;
+        bool cgi;
+        bool upload_s;
 
     public :
         location();
@@ -56,6 +58,8 @@ class location
         int rreturn(location &location, std::vector<std::string> &hold);
         int root_name(location &location, std::vector<std::string> &hold);
         int Index(location &location, std::vector<std::string> &hold);
+        int cgi_state(location &location, std::vector<std::string> &hold);
+        int upload_state(location &location, std::vector<std::string> &hold);
         void    print()
         {
             std::cout << NAME << std::endl;
@@ -66,6 +70,8 @@ class location
             std::cout << "DELETE :\n" << DELETE << std::endl;
             std::cout << "index :\n" << index << std::endl;
             std::cout << "return :\n" << _return << std::endl;
+            std::cout << "cgi :\n" << cgi << std::endl;
+            std::cout << "upload :\n" << upload_s << std::endl;
         }
         ~location();
 };
