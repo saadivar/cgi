@@ -138,7 +138,6 @@ std::string Response::cookie_header() {
 void Response::response_by_a_page(std::string path)
 {
     size_t file_size;
-    std::cout << "1 = " <<path << std::endl;
 
     std::ifstream fd_file(path.c_str());
     fd_file.seekg(0, std::ios::end);

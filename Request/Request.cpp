@@ -56,6 +56,8 @@ Request &Request::operator=(Request const &req)
     this->extensions = req.extensions;
     this->state_of_cgi = req.state_of_cgi;
     this->state_of_upload = req.state_of_upload;
+    this->Body = req.Body;
+
     return (*this);
 }
 
@@ -81,19 +83,27 @@ void Request::init()
     this->path_to_upload = "directorie/upload/";
     this->state_of_cgi = 1;
     this->state_of_upload = 1;
-
-    
+    this->Body = "";
 }
 
 Request::Request(std::string req, Server server)
 {
     init();
+   // std::cout << req << std::endl;
     if (!server.upload_path.empty())
     {
         if (server.upload_path[server.upload_path.length() - 1] != '/')
             server.upload_path += "/";
         this->path_to_upload = server.upload_path;
     }
+
+    size_t pos = req.find("\r\n\r\n");
+    if (pos != req.npos)
+        Body = req.substr(pos + 4);
+    // std::cout << "----------------------=" << Body << "=---------------" << std::endl;
+    
+    req = req.substr(0, pos + 2);
+
     ft_split(req, "\r\n", myHeaders);
     fill_method_type();    
     fill_query();
@@ -105,7 +115,7 @@ Request::Request(std::string req, Server server)
 
    //print Headers
     // for (int i = 0; i < StoreHeaders.size(); i++)
-    //     std::cout << "val = " << StoreHeaders[i].first << " key = " << StoreHeaders[i].second << std::endl;
+      //   std::cout << "val = " << StoreHeaders[i].first << " key = " << StoreHeaders[i].second << std::endl;
     
     error_handling(server); 
 
@@ -138,7 +148,7 @@ Request::Request(std::string req, Server server)
     if (find_key("Cookie", StoreHeaders))
         this->cookie += valueOfkey("Cookie", StoreHeaders);
     generate_error_page(server);
-    std::cout << "----------->"<< target <<std::endl;
+   std::cout << ""<< Post_status <<std::endl;
 } 
 
 Request::~Request(){

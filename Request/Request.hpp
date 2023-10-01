@@ -49,7 +49,7 @@ class Request
         std::string accept;
         std::map<std::string, std::string> pages;
         std::map<std::string, std::string> extensions;
-
+        std::string Body;
         std::string path_to_upload;
 
         bool state_of_cgi;
