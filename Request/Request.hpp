@@ -54,6 +54,7 @@ class Request
 
         bool state_of_cgi;
         bool state_of_upload;
+        bool is_cgi;
 
     public :
 
@@ -82,6 +83,7 @@ class Request
         //uri handling
         void long_uri(Server &serv);
         void short_uri(Server &serv);
+      
         int count_slash(std::string tar);
         void replace_slash_in_target(Server &serv);
         void directory_moved_permanently();

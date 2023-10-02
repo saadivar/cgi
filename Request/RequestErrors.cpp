@@ -50,11 +50,19 @@ void Request:: error_handling(Server &serv)
                 status = "413";
         }
         else if (method == "GET"  && access(target.c_str(), R_OK) == -1)
-            status = "403";
+        {
+             std::cout << "3333"<<std::endl;
+             status = "403";
+        }
+           
         else if (target.find(".php") != target.npos || target.find(".py") != target.npos)
         {
             if (access(target.c_str(), X_OK) == -1)
+            {
+                std::cerr <<"tar = " <<target <<std::endl;
                 status = "403";
+            }
+               
         }
         else if (httpVersion != "HTTP/1.1")
             status = "400";

@@ -2,6 +2,12 @@
 
 #include "Request/Request.hpp"
 
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <iostream>
+#include <fstream>
+#include <fcntl.h>
+#include <unistd.h>
 #define MAX_REQUEST_SIZE 2048
 #define LINE 4096
 

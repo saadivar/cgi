@@ -270,16 +270,34 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
                         break;
                 }
             }
-            
+            stringOfrequest.erase(client_fd);
+            //std::cout << req[client_fd].method << std::endl;
+            //std::cout << req[client_fd].Post_status << std::endl;
             if(req[client_fd].Post_status == "boundary")
             {
                 if (req[client_fd].Body.find(req[client_fd].boundary_separater + "--") != std::string::npos)
                 {
                     std::string str;
                     str = req[client_fd].Body;
-                    std::cout << "-------------" << str << "-----------" <<std::endl;
                     req[client_fd].Body.clear();
                     Boundry(client_fd, req, str);
+                }
+            }
+            else if (req[client_fd].Post_status == "Bainary/Row")
+            {
+                //std::cerr << "hey1"<<req[client_fd].Body <<std::endl;
+                req[client_fd].lenght_Readed += req[client_fd].Body.size();
+                if (!req[client_fd].Body.empty())
+                {
+                    req[client_fd].outfile.write(req[client_fd].Body.c_str(), req[client_fd].Body.size());
+                    req[client_fd].Body.clear();
+                }
+                if (req[client_fd].lenght_Readed == req[client_fd].lenght_of_content)
+                {
+                    req[client_fd].Body.clear();
+                    req[client_fd].outfile.close();
+                    req[client_fd].epol = 0;
+                    return;
                 }
             }
             else if(req[client_fd].Post_status == "chunked")
@@ -291,7 +309,7 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
                     req[client_fd].Body.clear();
                 }
             }
-            stringOfrequest.erase(client_fd);
+           
             if (req[client_fd].endOfrequest)
                 req[client_fd].epol = 0;
         }
@@ -308,12 +326,6 @@ void request_part(std::vector<Server> &servers, epol *ep, int client_fd, std::ma
             if ((n_read = read(client_fd, rec_b, size - 1)) > 0)
             {
                 req[client_fd].lenght_Readed += n_read;
-                if (!req[client_fd].Body.empty())
-                {
-                    req[client_fd].outfile.write(rec_b, n_read);
-                    req[client_fd].Body.clear();
-                }
-                   
                 req[client_fd].outfile.write(rec_b, n_read);
                 if (req[client_fd].lenght_Readed == req[client_fd].lenght_of_content)
                 {
@@ -433,14 +445,110 @@ void fill_envirements(cgi_args *cgi, std::map<int, Request> &req, int client_fd)
         cgi->env[9] = NULL;
     }
 }
+void forking( int client_fd, std::map<int, Request> &req)
+{
+    req[client_fd].is_forked_before = 1;
+    if (pipe(req[client_fd].pipefd) == -1)
+        perror("pipe");
+    req[client_fd].pid_of_the_child = fork();
 
-#include <sys/types.h>
-#include <sys/wait.h>
-#include <iostream>
-#include <fstream>
-#include <fcntl.h>
-#include <unistd.h>
-
+    if (req[client_fd].pid_of_the_child  == -1)
+        perror("fork");
+}
+void child_proc(int client_fd, std::map<int, Request> &req)
+{
+    cgi_args args;
+    close(req[client_fd].pipefd[0]); 
+    dup2(req[client_fd].pipefd[1], 1); 
+    close(req[client_fd].pipefd[1]);
+    int fd ;
+    if(req[client_fd].method == "POST")
+    {
+        fd = open(req[client_fd].outfile_name.c_str(),O_RDONLY | std::ios::binary);
+        dup2(fd, 0);
+        close (fd);
+    }   
+    fill_envirements(&args, req, client_fd);
+    if (execve(args.args[0], args.args, args.env) == -1)
+    {
+        perror("exec = ");
+    }
+    exit(127);
+}
+int adding_pipe_2ep(epol *ep, int client_fd, std::map<int, Request> &req)
+{
+    ep->ev.events = EPOLLIN ;
+    ep->ev.data.fd = req[client_fd].pipefd[0];
+    if (epoll_ctl(ep->ep_fd, EPOLL_CTL_ADD, req[client_fd].pipefd[0], &ep->ev) == -1)
+    {
+        epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, req[client_fd].pipefd[0], &ep->ev);
+        close(req[client_fd].pipefd[0]);
+        return 0;
+    }
+    req[client_fd].time_of_child = clock();
+    close(req[client_fd].pipefd[1]); 
+    return 1;
+}
+int checking_timeout(int client_fd, std::map<int, Request> &req,Response& resp)
+{
+     pid_t retwait = waitpid(req[client_fd].pid_of_the_child, 0, WNOHANG);
+    if (retwait == 0)
+    {
+        clock_t end = clock();
+        double elapsed_seconds = static_cast<double>(end - req[client_fd].time_of_child) / CLOCKS_PER_SEC;
+        if(elapsed_seconds >= 4)
+        {
+            kill(req[client_fd].pid_of_the_child, SIGKILL);
+            req[client_fd].status = "503";
+            resp.response_by_a_page("error/503.html");
+            return 0;
+        }
+        else
+        {  
+            return 1;       
+        }
+    }
+    else
+    {
+        req[client_fd].child_exited = 1;
+    }
+    return 1;
+}
+int cgi_response(epol *ep, int client_fd, std::map<int, Request> &req,int  fd_ready,Response& resp)
+{
+    char buffer[70000];
+    ssize_t bytesRead;
+    if ((bytesRead = read(req[client_fd].pipefd[0], buffer, sizeof(buffer))) > 0)
+    {
+        if(req[client_fd].target.find("data.py") != std::string::npos)
+        {
+            std::string a;
+            std::string response_header = resp.cgi_header(a);
+            write(client_fd, response_header.c_str(), response_header.size());
+            write(client_fd,buffer,bytesRead);
+            std::remove(req[client_fd].outfile_name.c_str());
+            epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, req[client_fd].pipefd[0], NULL);
+            close(req[client_fd].pipefd[0]);
+        }
+        else
+        {
+            std::string header;
+            std::string body;
+            header.append(buffer,bytesRead);
+            body.append(buffer,bytesRead);
+            header = header.substr(0,header.find("\r\n\r\n")) ;
+            body = body.substr(header.find("\r\n\r\n") + 4);
+            std::string response_header = resp.cgi_header(header);
+            write(client_fd, response_header.c_str(), response_header.size());
+            write(client_fd,body.c_str(),body.size());
+            std::remove(req[client_fd].outfile_name.c_str());
+            epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, req[client_fd].pipefd[0], NULL);
+            close(req[client_fd].pipefd[0]);
+        }
+        return 0;
+    }
+    return 0;
+}
 int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
 {
 
@@ -448,81 +556,18 @@ int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
     Response resp(client_fd,req);
     if(resp.is_cgi() && req[client_fd].is_forked_before == 0 && req[client_fd].state_of_cgi == 1)
     { 
-        
+        std::cerr << "here "<< std::endl;
         if(req[client_fd].is_forked_before == 0)
-        {
-            req[client_fd].is_forked_before = 1;
-            if (pipe(req[client_fd].pipefd) == -1)
-            {
-                perror("pipe");
-            }
-           
-            req[client_fd].pid_of_the_child = fork();
-
-            if (req[client_fd].pid_of_the_child  == -1)
-            {
-                perror("fork");
-            }
-        }
-        if (req[client_fd].pid_of_the_child== 0) 
-        {   
-            std::string met;
-            cgi_args args;
-            close(req[client_fd].pipefd[0]); 
-            dup2(req[client_fd].pipefd[1], 1); 
-            close(req[client_fd].pipefd[1]);
-            int fd ;
-            if(req[client_fd].method == "POST")
-            {
-                fd = open(req[client_fd].outfile_name.c_str(),O_RDONLY | std::ios::binary);
-                dup2(fd, 0);
-                close (fd);
-            }   
-            fill_envirements(&args, req, client_fd);
-            if (execve(args.args[0], args.args, args.env) == -1)
-            {
-                perror("exec = ");
-            }
-            exit(127);
-        } 
+            forking(client_fd,req);
+        if (req[client_fd].pid_of_the_child== 0)   
+            child_proc(client_fd,req);
         else 
-        { 
-           std::cerr << "ss " << std::endl;
-            ep->ev.events = EPOLLIN ;
-            ep->ev.data.fd = req[client_fd].pipefd[0];
-            if (epoll_ctl(ep->ep_fd, EPOLL_CTL_ADD, req[client_fd].pipefd[0], &ep->ev) == -1)
-            {
-                exit(1);
-                close(req[client_fd].pipefd[0]);
-            }
-            req[client_fd].time_of_child = clock();
-            close(req[client_fd].pipefd[1]); 
-        }
+            return (adding_pipe_2ep(ep,client_fd,req)); 
         return 1;
     }
     else if(resp.is_cgi() && req[client_fd].is_forked_before == 1 && req[client_fd].child_exited == 0)
     {
-        pid_t retwait = waitpid(req[client_fd].pid_of_the_child, 0, WNOHANG);
-        if (retwait == 0)
-        {
-            clock_t end = clock();
-            double elapsed_seconds = static_cast<double>(end - req[client_fd].time_of_child) / CLOCKS_PER_SEC;
-            if(elapsed_seconds >= 4)
-            {
-                kill(req[client_fd].pid_of_the_child, SIGKILL);
-                req[client_fd].status = "503";
-                resp.response_by_a_page("error/503.html");
-            }
-            else
-            {  
-                return 1;       
-            }
-        }
-        else
-        {
-            req[client_fd].child_exited = 1;
-        }
-        return 1;
+        return (checking_timeout(client_fd,req,resp));
     }
     else if(resp.is_cgi() && req[client_fd].is_forked_before == 1 && req[client_fd].child_exited == 1)
     {
@@ -530,43 +575,10 @@ int response(epol *ep, int client_fd, std::map<int, Request> &req,int fd_ready)
         {
             if(req[client_fd].pipefd[0] == ep->events[i].data.fd)
             {
-
-                char buffer[70000];
-                ssize_t bytesRead;
-                if ((bytesRead = read(req[client_fd].pipefd[0], buffer, sizeof(buffer))) > 0)
-                {
-                    if(req[client_fd].target.find("data.py") != std::string::npos)
-                    {
-                        std::string a;
-                        std::string response_header = resp.cgi_header(a);
-                        write(client_fd, response_header.c_str(), response_header.size());
-                        write(client_fd,buffer,bytesRead);
-                        std::remove(req[client_fd].outfile_name.c_str());
-                        epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, req[client_fd].pipefd[0], NULL);
-                        close(req[client_fd].pipefd[0]);
-                    }
-                    else
-                    {
-                        std::string header;
-                        std::string body;
-                        header.append(buffer,bytesRead);
-                        body.append(buffer,bytesRead);
-                        header = header.substr(0,header.find("\r\n\r\n")) ;
-                        body = body.substr(header.find("\r\n\r\n") + 4);
-                        std::string response_header = resp.cgi_header(header);
-                        write(client_fd, response_header.c_str(), response_header.size());
-                        write(client_fd,body.c_str(),body.size());
-                        std::remove(req[client_fd].outfile_name.c_str());
-                        epoll_ctl(ep->ep_fd, EPOLL_CTL_DEL, req[client_fd].pipefd[0], NULL);
-                        close(req[client_fd].pipefd[0]);
-                    }
-                    return 0;
-                }
+                return(cgi_response(ep,client_fd,req,fd_ready,resp));
             }
-           
         }
         return 1;
-        
     }
     else if(resp.is_post())
     {

@@ -233,18 +233,10 @@ std::string Response::generateDirectoryListing()
                         if (S_ISDIR(fileStat.st_mode) && entryName[entryName.size() - 1 ]!= '/')
                             entryName += "/";
                     }
-                    htmlStream << "<p><a href=\"" << req[client_fd].uri_for_response + "/" << entryName   << "\">" << entryName  << "</a></p>\n";
+                    if (req[client_fd].uri_for_response[req[client_fd].uri_for_response.size() - 1 ] != '/')
+                        req[client_fd].uri_for_response += "/";
+                    htmlStream << "<p><a href=\"" << req[client_fd].uri_for_response  << entryName   << "\">" << entryName  << "</a></p>\n";
                 } 
-                else 
-                {
-                    struct stat fileStat;
-                    if (stat((req[client_fd].target + entryName).c_str(), &fileStat) == 0)
-                    {
-                        if (S_ISDIR(fileStat.st_mode)&& entryName[entryName.size() - 1 ]!= '/')
-                            entryName += "/";
-                    }
-                    htmlStream << "<p><a href=\"" << req[client_fd].target +  entryName << "\">" << entryName << "</a></p>\n";
-                }
             }
         }
         closedir(dir);
