@@ -53,10 +53,10 @@ int   Server::get_listen(Server &server, std::vector<std::string> &hold)
     
     SA_I s;
 
-    server.server_sock.push_back(-1);
+    server.server_sock = -1;
     memset(&s,0,sizeof(s));
-    server.seraddr_s.push_back(s);
-    server.listen.push_back((u_int16_t)listen);
+    server.seraddr_s = s;
+    server.listen = (u_int16_t)listen;
     return(1);
 }
 
@@ -88,7 +88,7 @@ int   Server::get_server_name(Server &server, std::vector<std::string> &hold)
 {
     if (hold.size() != 2)
         return 0;
-    server.server_name.push_back(hold[1]);
+    server.server_name = hold[1];
     return(1);
 }
 
@@ -227,14 +227,14 @@ void Server::print_all()
     {
         std::cout << "----------------" << "Server" << i <<"----------------" <<std::endl;
         std::cout << "listen :"<< std::endl;
-        std::vector<u_int16_t>::iterator iter = servers[i].listen.begin();
-        for(iter; iter < servers[i].listen.end(); iter++)
-            std::cout << *iter << " ";
+        // std::vector<u_int16_t>::iterator iter = servers[i].listen.begin();
+        // for(iter; iter < servers[i].listen.end(); iter++)
+        //     std::cout << *iter << " ";
         std::cout << std::endl;
         std::cout << "host : \n" << servers[i].host << std::endl;
-        std::vector<std::string>::iterator it1 = servers[i].server_name.begin();
-        for(it1; it1 < servers[i].server_name.end(); it1++)
-            std::cout << "server_name :\n" << *it1 << std::endl;
+       // std::vector<std::string>::iterator it1 = servers[i].server_name.begin();
+       // for(it1; it1 < servers[i].server_name.end(); it1++)
+         //   std::cout << "server_name :\n" << *it1 << std::endl;
         std::map<std::string , std::string>::iterator it = servers[i].error_page.begin();
         std::cout << "error_page :\n";
         while (it !=  servers[i].error_page.end())

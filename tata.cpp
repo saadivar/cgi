@@ -608,7 +608,7 @@ void fill_ser_Add(Server &ser, int i)
     ser.seraddr_s[i].sin_port = htons(ser.listen[i]);
 }
 
-void init(Server &ser, epol *ep)
+void init(Server &ser, epol *ep,)
 {
     for (int i = 0; i < ser.listen.size(); i++)
     {

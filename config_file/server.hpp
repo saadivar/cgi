@@ -6,17 +6,17 @@ class location;
 class Server
 {    
     public:
-        std::vector<u_int16_t>  listen;
+        u_int16_t listen;
         std::string  host;
-        std::vector <std::string>  server_name;
+        std::string server_name;
         std::map <std::string, std::string> error_page;
         int  max_body;
         std::string  root;
         std::string  index;
         std::vector <location> locations;
         std::vector<int > fd_sock; //client
-        std::vector<int > server_sock;
-        std::vector<SA_I> seraddr_s;
+        int  server_sock;
+        SA_I seraddr_s;
         std::vector <Server> servers;
         int location_flag;
         std::string line; 
