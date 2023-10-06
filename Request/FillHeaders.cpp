@@ -7,10 +7,12 @@ void Request::fill_error_pages_map()
     pages.insert(std::pair<std::string, std::string>("401", "error/401.html"));
     pages.insert(std::pair<std::string, std::string>("403", "error/403.html"));
     pages.insert(std::pair<std::string, std::string>("404", "error/404.html"));
+    pages.insert(std::pair<std::string, std::string>("405", "error/405.html"));
     pages.insert(std::pair<std::string, std::string>("500", "error/500.html"));
     pages.insert(std::pair<std::string, std::string>("501", "error/501.html"));
     pages.insert(std::pair<std::string, std::string>("503", "error/503.html"));
-    pages.insert(std::pair<std::string, std::string>("414", "error/414.html"));
+    pages.insert(std::pair<std::string, std::string>("504", "error/504.html"));
+    pages.insert(std::pair<std::string, std::string>("411", "error/411.html"));
     pages.insert(std::pair<std::string, std::string>("413", "error/413.html"));
 }
 
@@ -33,7 +35,7 @@ void Request::fill_extensions_map()
 
 void Request::fill_headers()
 {
-    for (int i = 1; i < this->myHeaders.size();i++)
+    for (int i = 1; i < (int)this->myHeaders.size();i++)
     {
         std::vector<std::string> line;
         if (this->myHeaders[i][0] != 0)
@@ -62,11 +64,15 @@ void Request::fill_query()
 void      Request::fill_method_type()
 {
     std::vector<std::string> first_line;
-
-    ft_split(this->myHeaders[0], " ", first_line);
+  
+    if(this->myHeaders.size() > 0)
+        ft_split(this->myHeaders[0], " ", first_line);
     if (first_line.size() != 3)
         this->status = "400";
-    this->method = first_line[0];
-    this->target = first_line[1];
-    this->httpVersion = first_line[2];
+    else
+    {
+        this->method = first_line[0];
+        this->target = first_line[1];
+        this->httpVersion = first_line[2];
+    }
 }

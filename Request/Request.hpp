@@ -11,11 +11,14 @@ class Request
         int is_forked_before;
         int pipefd[2];
         pid_t pid_of_the_child;
+        clock_t time_out;
         //
 
         int header_flag;
-        int lenght_Readed;
-        int lenght_of_content;
+        long long lenght_Readed;
+        long long maxbody;
+        long long max_readed;
+        long long lenght_of_content;
         int calcul_chunk_flag;    
         int flag_uri;
         int epol;
@@ -30,9 +33,9 @@ class Request
         std::ifstream fd_file;
         
         int chunk_size;
-        size_t Bytes_readed;
+        int Bytes_readed;
         size_t chunked_file_size_response;
-
+        int last_chunk;
         std::string rest_of_boundry;
         std::ofstream outfile;
         std::string outfile_name;
@@ -51,7 +54,7 @@ class Request
         std::map<std::string, std::string> extensions;
         std::string Body;
         std::string path_to_upload;
-
+        int check_return_index;
         bool state_of_cgi;
         bool state_of_upload;
         bool is_cgi;
@@ -85,7 +88,7 @@ class Request
         void short_uri(Server &serv);
       
         int count_slash(std::string tar);
-        void replace_slash_in_target(Server &serv);
+        std::string& replace_slash_in_target(Server &serv);
         void directory_moved_permanently();
         void encoded_uri();
         //
@@ -98,6 +101,6 @@ class Request
         void print_element();
         void error_handling(Server &serv);
         void Delete_methode();
-
+        void real_path();
         ~Request();
 };

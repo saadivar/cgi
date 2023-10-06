@@ -1,5 +1,4 @@
-SRC = 	multiplexer.cpp \
-		config_file/location.cpp \
+SRC =	config_file/location.cpp \
 		Request/FillHeaders.cpp \
 		Request/Request.cpp \
 		Request/RequestErrors.cpp \
@@ -8,11 +7,13 @@ SRC = 	multiplexer.cpp \
 		Request/PostElements.cpp\
 	 	Request/Delete.cpp\
    		config_file/server.cpp\
-    	socket.cpp response.cpp
+		response/cgi.cpp response/main_loop.cpp response/multi.cpp response/response.cpp\
+		main/main.cpp response/post_req.cpp
+
 OBJ = $(SRC:.cpp=.o)
-CXX = g++
+CXX = c++
 RM = rm -f
-CPPFLAGS =   -std=c++98  -fsanitize=address -g3
+CPPFLAGS =  -Wall -Wextra -Werror  -std=c++98
 NAME = webserve
 
 all: $(NAME)

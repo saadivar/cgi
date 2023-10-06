@@ -58,8 +58,10 @@ Request &Request::operator=(Request const &req)
     this->state_of_upload = req.state_of_upload;
     this->Body = req.Body;
     this->is_cgi = req.is_cgi;
-
-
+    this->maxbody = req.maxbody;
+    this->max_readed = req.max_readed;
+    this->last_chunk = req.last_chunk;
+    this->time_out = req.time_out;
     return (*this);
 }
 
@@ -82,12 +84,17 @@ void Request::init()
     this->header_for_cgi_resp = 0;
     this->child_exited = 0;
     this->pipefd[0] = -1;
-    this->path_to_upload = "directorie/upload/";
+    this->path_to_upload = "/upload";
     this->state_of_cgi = 1;
     this->state_of_upload = 1;
     this->Body = "";
     this->is_cgi = 0;
-
+    this->lenght_of_content = 0;
+    this->maxbody = -1;
+    this->max_readed = 0;
+    this->last_chunk = 0;
+    this->time_out = 0;
+    this->check_return_index = 0;
 }
 
 void Request::search_for_ServerName(std::vector<Server> &servers, Server &serv)
@@ -95,7 +102,7 @@ void Request::search_for_ServerName(std::vector<Server> &servers, Server &serv)
     std::vector<std::string> tmp;
 
     ft_split(valueOfkey("Host", StoreHeaders), ":", tmp);
-    for (int i = 0; i < servers.size(); i++)
+    for (int i = 0; i < (int)servers.size(); i++)
     {
         if (servers[i].server_name == tmp[0])
         {
@@ -103,59 +110,58 @@ void Request::search_for_ServerName(std::vector<Server> &servers, Server &serv)
             break;
         } 
     }
-  
+}
+
+void Request::real_path()
+{
+    char new_path[PATH_MAX];
+
+    if (realpath(target.c_str(), new_path) != 0)
+    {
+        std::string tmp(new_path);
+        
+        if(tmp.find("directorie") == tmp.npos)
+            status = "403";
+    }
 }
 
 Request::Request(std::string req, Server server, std::vector<Server> &servers)
 {
     init();
-    if (!server.upload_path.empty())
-    {
-        if (server.upload_path[server.upload_path.length() - 1] != '/')
-            server.upload_path += "/";
-        this->path_to_upload = server.upload_path;
-    }
-
     size_t pos = req.find("\r\n\r\n");
     if (pos != req.npos)
+    {
         Body = req.substr(pos + 4);
+        req = req.substr(0, pos + 2);
+    }
  
-    req = req.substr(0, pos + 2);
     ft_split(req, "\r\n", myHeaders);
-    fill_method_type();    
+    fill_method_type();
     fill_query();
-    encoded_uri();
     fill_error_pages_map();
     fill_extensions_map();
     this->uri_for_response = target;
     fill_headers();
-
-    if (target.find(".php") != target.npos || target.find(".py") != target.npos)
+ 
+    if (status == "200" && (target.find(".php") != target.npos || target.find(".py") != target.npos))
         is_cgi = 1;
-   //print Headers
-    //for (int i = 0; i < StoreHeaders.size(); i++)
-      //  std::cout << "val = " << StoreHeaders[i].first << " key = " << StoreHeaders[i].second << std::endl;
-    if (find_key("Host", StoreHeaders))
+    if (status == "200" && find_key("Host", StoreHeaders))
         search_for_ServerName(servers, server);
-    error_handling(server);
+    
+    if (status == "200")
+        error_handling(server);
 
     if (method == "POST" && status == "200")
     {
         this->endOfrequest = 0;  
         get_post_status();
     }
-    if (status == "200" && method != "DELETE")
-        directory_moved_permanently();
+
     if (method == "DELETE" && status == "200")
     {
-        if (target.find("../") == target.npos || target.find("./") == target.npos)
-        {
-            Delete_methode();
-            if (status == "200")
-                target = "error/200.html";
-        }
-        else
-            status = "401";
+        Delete_methode();
+        if (status == "200")
+            target = "error/200.html";
     }
     if (find_key("Content-Length", StoreHeaders) || find_key("Content-Type", StoreHeaders))
     {
@@ -167,7 +173,6 @@ Request::Request(std::string req, Server server, std::vector<Server> &servers)
     if (find_key("Cookie", StoreHeaders))
         this->cookie += valueOfkey("Cookie", StoreHeaders);
     generate_error_page(server);
-
 } 
 
 Request::~Request(){
